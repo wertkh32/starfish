@@ -87,6 +87,8 @@ public class TangoPointCloud : MonoBehaviour, ITangoDepth
     private Renderer m_renderer;
     private System.Random m_rand;
     
+	public bool isScanning = true;
+
     /// <summary>
     /// Use this for initialization.
     /// </summary>
@@ -207,7 +209,8 @@ public class TangoPointCloud : MonoBehaviour, ITangoDepth
                 m_renderer.material.SetMatrix("depthCameraTUnityWorld", unityWorldTDepthCamera.inverse);
 
 				//VoxelExtractionPointCloud.Instance.computeDepthPlanes(ref unityWorldTDepthCamera, unityWorldTDepthCamera * new Vector4(0,0,0,1), minpts, maxpts);
-				VoxelExtractionPointCloud.Instance.addAndRender(this);
+				if(isScanning)
+					VoxelExtractionPointCloud.Instance.addAndRender(this);
             }
             else
             {
@@ -494,4 +497,12 @@ public class TangoPointCloud : MonoBehaviour, ITangoDepth
                               (float)poseData.orientation[3]);
         m_imuTDepthCamera = Matrix4x4.TRS(position, quat, new Vector3(1.0f, 1.0f, 1.0f));
     }
+
+	void OnGUI()
+	{
+		if (GUI.Button(new Rect(Screen.width - 400, 50, 150, 80), "Toggle Scanning"))
+		{
+			isScanning = !isScanning;
+		}
+	}
 }

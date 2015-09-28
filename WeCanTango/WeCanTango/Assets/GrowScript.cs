@@ -17,8 +17,7 @@ public class GrowScript : MonoBehaviour {
 	}
 	// Use this for initialization
 	void Start () {
-		//partsys.enableEmission = false;
-		//this.GetComponent<Collider> ().enabled = false;
+	
 	}
 
 	public void init(Vector3 _position, Vector3 _normal, bool CanGrow)

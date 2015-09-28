@@ -2,7 +2,7 @@
 //#define JITTER
 #define USE_NORMALS
 #define USE_UV
-#define USE_CHUNK_FRUSTUM_CULLING
+//#define USE_CHUNK_FRUSTUM_CULLING
 //#define VOXEL_DELETION
 
 using UnityEngine;
@@ -12,7 +12,7 @@ using System.Collections;
 public static class VoxelConsts
 {
 	public static int CHUNK_SIZE = 8;
-	public static int PT_THRES = 20;
+	public static int PT_THRES = 30;
 	public static int VOXEL_RES = 10;
 	public static int FRAME_THRES = 5;
 	public static Vec3Int[] CardinalDir = new Vec3Int[]{ new Vec3Int(0,0,1), new Vec3Int(0,0,-1), new Vec3Int(-1,0,0), new Vec3Int(1,0,0), new Vec3Int(0,1,0), new Vec3Int(0,-1,0) };
