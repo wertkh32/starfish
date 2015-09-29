@@ -36,7 +36,7 @@ public class GrowScript : MonoBehaviour {
 		//Debug.Log ("HI");
 		if(other.gameObject.tag == "Player")
 		{
-			obj.transform.localScale = new Vector3 (30, 50, 30);
+			obj.transform.localScale = new Vector3 (30, 30, 30);
 		}
 	}
 	

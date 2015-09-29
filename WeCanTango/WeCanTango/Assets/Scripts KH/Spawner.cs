@@ -17,7 +17,7 @@ public class Spawner : MonoBehaviour {
 	// Update is called once per frame
 	void Update () {
 		framecount++;
-		if(framecount % 120 != 0 || count > 10)
+		if(framecount % 120 != 0 || count > 5)
 			return;
 
 		Random.seed = (int)(Time.deltaTime * 1000);

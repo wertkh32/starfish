@@ -7,6 +7,7 @@
       Pass {	
          Tags { "LightMode" = "ForwardBase" } 
             // make sure that all uniforms are correctly set
+            Cull Off
  
          CGPROGRAM
  

@@ -51,6 +51,26 @@ public class BiomeScript : MonoBehaviour {
 		}
 	}
 
+	public void resetBiomes()
+	{
+		for(int i=0;i<num_chunks_x;i++)
+			for(int j=0;j<num_chunks_z;j++)
+				for(int k=0;k<num_chunks_y;k++)
+				{
+					chunkObjs[i,k,j].GetComponent<MeshRenderer>().material = materials[(int)biomeMap[i,j]];
+				}
+	}
+
+	public void setAllMaterials(Material mat)
+	{
+		for (int i=0; i<num_chunks_x; i++)
+			for (int j=0; j<num_chunks_z; j++)
+				for (int k=0; k<num_chunks_y; k++) 
+			{
+				chunkObjs[i,k,j].GetComponent<MeshRenderer>().material = mat;
+			}
+	}
+
 	// Update is called once per frame
 	void Update () {
 	

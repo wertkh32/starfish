@@ -2,7 +2,7 @@
 //#define JITTER
 #define USE_NORMALS
 #define USE_UV
-//#define USE_CHUNK_FRUSTUM_CULLING
+#define USE_CHUNK_FRUSTUM_CULLING
 //#define VOXEL_DELETION
 
 using UnityEngine;
@@ -894,6 +894,44 @@ public class VoxelExtractionPointCloud : Singleton<VoxelExtractionPointCloud>
 		return false;
 	}
 
+	//optimize later
+	public bool OccupiedRayCast(Vector3 start, Vector3 dir, float dist, ref Vector3 vxcood, ref Vector3 normal)
+	{
+		Vector3 pt = ToGridUnTrunc (start);
+		dir = dir.normalized;
+		
+		for(float i=0;i<dist;i+=1.0f)
+		{
+			Vec3Int cvCoord = new Vec3Int(pt);
+			Voxel vx = grid.getVoxel(cvCoord);
+			
+			if(!vx.isOccupied())
+			{
+				Voxel ovx = grid.getVoxel(new Vec3Int(pt - dir));
+
+				vxcood = FromGridUnTrunc(cvCoord.ToVec3() + new Vector3(0.5f,0.5f,0.5f));
+				Vector3 _normal = new Vector3();
+				
+				for(int j=0;j<6;j++)
+				{
+					VF flag = (VF)j;
+					if(ovx.getFace(flag) && Vector3.Dot (dir,VoxelConsts.CardinalV3Dir[j]) < 0)
+					{
+						_normal += VoxelConsts.CardinalV3Dir[j];
+					}
+				}
+				
+				normal = _normal.normalized;
+				
+				return true;
+			}
+			
+			pt += dir;
+		}
+		
+		return false;
+	}
+
 
 	public void InstantiateChunkIfNeeded(Vec3Int coords)
 	{
@@ -940,6 +978,38 @@ public class VoxelExtractionPointCloud : Singleton<VoxelExtractionPointCloud>
 
 	void Update()
 	{
+		#if USE_CHUNK_FRUSTUM_CULLING
+		MVP = camera.projectionMatrix * camera.worldToCameraMatrix;
+
+		for (int i=0; i<num_chunks_x; i++)
+			for (int j=0; j<num_chunks_y; j++)
+				for (int k=0; k<num_chunks_z; k++) 
+			{
+					Chunks chunk = grid.voxelGrid [i, j, k];
+				
+					if (chunk == null)
+						continue;
+					if (chunk.isEmpty ())
+						continue;
+				
+					Vec3Int chunkcoords = new Vec3Int (i, j, k);
+
+					if(isChunkInFrustum(chunkcoords))
+					{
+						chunkGameObjects[i,j,k].GetComponent<MeshRenderer>().enabled = true;
+					}
+					else
+					{
+						chunkGameObjects[i,j,k].GetComponent<MeshRenderer>().enabled = false;
+						continue;
+					}
+			}
+		#endif
+
+
+
+
+
 		#if DEBUG_THIS
 		if (fakeData) 
 		{
