@@ -1,17 +1,29 @@
 ﻿using UnityEngine;
 using System.Collections;
 
-public enum BIOMES
+public enum BIOMES : int
 {
 	grass = 0,
-	sand = 1,
-	stone = 2,
-	dirt = 3
+	ice = 1,
+	water = 2,
+	sand = 3
 }
 
-public class BiomeScript : MonoBehaviour {
+
+
+public class BiomeScript : Singleton<BiomeScript> {
 	VoxelExtractionPointCloud vxe;
 	GameObject[,,] chunkObjs;
+
+	[System.Serializable]
+	public class BiomeArea
+	{
+		public int radius;
+		public BIOMES biome;
+		public Vector2 position;
+	}
+
+	public BiomeArea[] biomeArea;
 
 	[HideInInspector]
 	public BIOMES[,] biomeMap; 
@@ -36,19 +48,25 @@ public class BiomeScript : MonoBehaviour {
 	void initBiomes()
 	{
 		biomeMap = new BIOMES[num_chunks_x,num_chunks_z];
-		Random.seed = (int)(Random.value * Random.value * Random.value * 101.0f);
+
 		for(int i=0;i<num_chunks_x;i++)
 			for(int j=0;j<num_chunks_z;j++)
 		{
-			int mat = Random.Range (0,materials.Length);
+			biomeMap[i,j] = BIOMES.sand;
 
-			for(int k=0;k<num_chunks_y;k++)
+			Vector2 myvec = new Vector2(i,j);
+			for(int k=0;k<biomeArea.Length;k++)
 			{
-				chunkObjs[i,k,j].GetComponent<MeshRenderer>().material = materials[mat];
-			}
+				Vector2 localvec = myvec - biomeArea[k].position;
 
-			biomeMap[i,j] = (BIOMES)mat;
+				if(localvec.sqrMagnitude < (biomeArea[k].radius * biomeArea[k].radius))
+				{
+					biomeMap[i,j] = biomeArea[k].biome;
+				}
+			}
 		}
+
+		resetBiomes ();
 	}
 
 	public void resetBiomes()

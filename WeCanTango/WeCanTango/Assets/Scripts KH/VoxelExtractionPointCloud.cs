@@ -2,7 +2,7 @@
 //#define JITTER
 #define USE_NORMALS
 #define USE_UV
-#define USE_CHUNK_FRUSTUM_CULLING
+//#define USE_CHUNK_FRUSTUM_CULLING
 //#define VOXEL_DELETION
 
 using UnityEngine;
@@ -592,7 +592,7 @@ public class VoxelExtractionPointCloud : Singleton<VoxelExtractionPointCloud>
 	private object lockthis = new object(); 
 
 	int vertex_count;
-	int chunk_size;
+	public int chunk_size;
 	//Vector3 jitter;
 	public string debugString;
 	public Camera camera;
@@ -676,9 +676,7 @@ public class VoxelExtractionPointCloud : Singleton<VoxelExtractionPointCloud>
 	{
 		
 		int timeslice = framecount % VoxelConsts.FRAME_THRES;
-#if USE_CHUNK_FRUSTUM_CULLING
-		MVP = camera.projectionMatrix * camera.worldToCameraMatrix;
-#endif
+
 		for(int i=0;i<num_chunks_x;i++)
 			for(int j=0;j<num_chunks_y;j++)
 				for(int k=0;k<num_chunks_z;k++)
@@ -691,18 +689,6 @@ public class VoxelExtractionPointCloud : Singleton<VoxelExtractionPointCloud>
 					continue;
 				
 				Vec3Int chunkcoords = new Vec3Int(i,j,k);
-
-#if USE_CHUNK_FRUSTUM_CULLING
-				if(isChunkInFrustum(chunkcoords))
-				{
-					chunkGameObjects[i,j,k].GetComponent<MeshRenderer>().enabled = true;
-				}
-				else
-				{
-					chunkGameObjects[i,j,k].GetComponent<MeshRenderer>().enabled = false;
-					continue;
-				}
-#endif
 
 #if VOXEL_DELETION
 				if(timeslice == 0 && isChunkInDepthFrustum(chunkcoords))
@@ -729,6 +715,10 @@ public class VoxelExtractionPointCloud : Singleton<VoxelExtractionPointCloud>
 
 				chunk.istack.clear ();
 
+				
+				//if((camera.transform.position - chunkGameObjects [i,j,k].transform.position).sqrMagnitude > 64)
+				//	continue;
+
 				if(chunk.dirty)
 				{
 					if(chunk.mesh == null)
@@ -736,6 +726,7 @@ public class VoxelExtractionPointCloud : Singleton<VoxelExtractionPointCloud>
 						chunk.init(chunkGameObjects [i,j,k].GetComponent<MeshFilter>().mesh);
 						chunkGameObjects [i,j,k].GetComponent<MeshRenderer>().enabled = true;
 					}
+
 
 					for(int x=0;x<chunk_size;x++)
 						for(int y=0;y<chunk_size;y++)
@@ -1019,7 +1010,7 @@ public class VoxelExtractionPointCloud : Singleton<VoxelExtractionPointCloud>
 			
 			for(int i=0;i<10;i++)
 			{
-				debugPtCloud.m_points[i] = new Vector3(Random.value - 0.5f, Random.value - 0.5f, Random.value- 0.5f) * 2;
+				debugPtCloud.m_points[i] = new Vector3(Random.Range (-2.0f,2.0f), Random.Range (-2.0f,2.0f), Random.Range (-2.0f,2.0f));
 			}
 
 			int count = debugPtCloud.m_pointsCount;
