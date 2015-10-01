@@ -15,6 +15,8 @@ public static class VoxelConsts
 	public static int PT_THRES = 30;
 	public static int VOXEL_RES = 10;
 	public static int FRAME_THRES = 5;
+	public static int DEL_FRAME_THRES = 7;
+	public static int PT_DEL_THRES = 5;
 	public static Vec3Int[] CardinalDir = new Vec3Int[]{ new Vec3Int(0,0,1), new Vec3Int(0,0,-1), new Vec3Int(-1,0,0), new Vec3Int(1,0,0), new Vec3Int(0,1,0), new Vec3Int(0,-1,0) };
 	public static Vector3[] CardinalV3Dir = new Vector3[]{ new Vector3(0,0,1), new Vector3(0,0,-1), new Vector3(-1,0,0), new Vector3(1,0,0), new Vector3(0,1,0), new Vector3(0,-1,0) };
 }
@@ -169,6 +171,9 @@ public class Voxel
 	//guaranteed flags = 0
 	//public uint flags;
 	public byte pcount = 0;
+#if VOXEL_DELETION
+	public byte dcount = 0;
+#endif
 	BitArray flags = new BitArray (8, false);
 
 	public Voxel()
@@ -192,7 +197,20 @@ public class Voxel
 			flags.Set ((int)VF.VX_OCCUPIED, true);
 		}
 	}
-
+#if VOXEL_DELETION
+	public void removePoint()
+	{
+		if (!isOccupied())
+			return;
+		
+		dcount++;
+		
+		if(dcount > VoxelConsts.PT_DEL_THRES)
+		{
+			flags.Set ((int)VF.VX_OCCUPIED, false);
+		}
+	}
+#endif
 	public void setUnOccupied()
 	{
 		pcount = 0;
@@ -219,57 +237,54 @@ public class Voxel
 		flags.Set ((int)VF.VX_RESERVED, val);
 	}
 }
-
-
-public class Chunks
+public class ChunkTemplate
 {
-	public Voxel[,,] voxels;
-	public Mesh mesh;
-	public IndexStack<int> istack;
-
-	Vector3[] vertices;
-
+	public Vector3[] vertices;
+	
 #if USE_NORMALS
-	Vector3[] normals;
-	#if USE_UV
-	Vector2[] uvs;
-	#endif
+	public Vector3[] normals;
+#if USE_UV
+	public Vector2[] uvs;
 #endif
+#endif
+	public float voxel_size;
+	
+	public int vertex_dim;
+	public int vertex_count;
 
-	int[] indices;
+	private static ChunkTemplate instance;
 
-	int vertex_dim;
-	int vertex_count;
-
-	float voxel_size;
-
-	public bool dirty;
-
-	public Chunks() 
+	public static ChunkTemplate Instance
+	{
+		get 
+		{
+			if (instance == null)
+			{
+				instance = new ChunkTemplate();
+			}
+			return instance;
+		}
+	}
+	
+	private ChunkTemplate()
 	{
 		int chunk_size = (int)VoxelConsts.CHUNK_SIZE;
-		voxels = new Voxel[chunk_size,chunk_size,chunk_size];
 
-		dirty = false;
 		voxel_size = 1.0f / VoxelConsts.VOXEL_RES;
-
-		for (int i=0; i<chunk_size; i++)
-			for (int j=0; j<chunk_size; j++)
-				for (int k=0; k<chunk_size; k++)
-					voxels [i, j, k] = new Voxel ();
+	
 		vertex_dim = chunk_size + 1;
 		
 		vertex_count = vertex_dim * vertex_dim * vertex_dim;
 		
 		vertices = new Vector3[vertex_count * 6];
-
+		
 #if USE_NORMALS
 		normals = new Vector3[vertex_count * 6];
-		#if USE_UV
+#if USE_UV
 		uvs = new Vector2[vertex_count * 6];
-		#endif
+#endif
 #endif		
-
+		
 		for(int i=0;i<vertex_dim;i++)
 			for(int j=0;j<vertex_dim;j++)
 				for(int k=0;k<vertex_dim;k++)
@@ -277,49 +292,30 @@ public class Chunks
 				Vector3 vert = ResizeVertex(new Vector3(i, j, k));
 				setVertex(i,j,k,vert);
 			}
-		
-		indices = new int[vertex_count * 3];
-		istack = new IndexStack<int> (indices);
-	}
-
-	public void init(Mesh _mesh)
-	{
-		mesh = _mesh;
-		//mesh.MarkDynamic ();
-		mesh.vertices = vertices;
-		vertices = null;
-#if USE_NORMALS
-		mesh.normals = normals;
-		normals = null;
-		#if USE_UV
-		mesh.uv = uvs;
-		uvs = null;
-		#endif
-#endif
 
 	}
 
-	public Vector3 ResizeVertex(Vector3 vert)
+	private Vector3 ResizeVertex(Vector3 vert)
 	{
 		Vector3 newCoords = vert * voxel_size;
 		return newCoords;
 	}
-
-	public int getIndex(int x, int y, int z)
+	
+	private int getIndex(int x, int y, int z)
 	{
 		return x * vertex_dim * vertex_dim + y * vertex_dim + z;
 	}
 	
-	public void setVertex(int x, int y, int z, Vector3 vert)
+	private void setVertex(int x, int y, int z, Vector3 vert)
 	{
-#if USE_NORMALS
+		#if USE_NORMALS
 		vertices [getIndex(x,y,z) + getDirOffset(DIR.DIR_UP)] = vert;
 		vertices [getIndex(x,y,z) + getDirOffset(DIR.DIR_DOWN)] = vert;
 		vertices [getIndex(x,y,z) + getDirOffset(DIR.DIR_LEFT)] = vert;
 		vertices [getIndex(x,y,z) + getDirOffset(DIR.DIR_RIGHT)] = vert;
 		vertices [getIndex(x,y,z) + getDirOffset(DIR.DIR_BACK)] = vert;
 		vertices [getIndex(x,y,z) + getDirOffset(DIR.DIR_FRONT)] = vert;
-
+		
 		normals [getIndex(x,y,z) + getDirOffset(DIR.DIR_UP)] = new Vector3(0,1,0);
 		normals [getIndex(x,y,z) + getDirOffset(DIR.DIR_DOWN)] = new Vector3(0,-1,0);
 		normals [getIndex(x,y,z) + getDirOffset(DIR.DIR_LEFT)] = new Vector3(-1,0,0);
@@ -334,26 +330,90 @@ public class Chunks
 		uvs [getIndex(x,y,z) + getDirOffset(DIR.DIR_BACK)] = new Vector2(x,y);
 		uvs [getIndex(x,y,z) + getDirOffset(DIR.DIR_FRONT)] = new Vector2(x,y);
 		#endif
-#else
+		#else
 		vertices [getIndex(x,y,z)] = vert;
+		#endif
+	}
+	
+	private int getDirOffset(DIR dir)
+	{
+		#if USE_NORMALS
+		return (int)dir * vertex_count;
+		#else
+		return 0;
+		#endif
+	}
+
+}
+
+public class Chunks
+{
+	public Voxel[,,] voxels;
+	public Mesh mesh;
+	public IndexStack<int> istack;
+
+	int[] indices;
+
+	public bool dirty;
+	public uint voxel_count = 0;
+
+	public Chunks() 
+	{
+		int chunk_size = (int)VoxelConsts.CHUNK_SIZE;
+		voxels = new Voxel[chunk_size,chunk_size,chunk_size];
+
+		dirty = false;
+		float voxel_size = 1.0f / VoxelConsts.VOXEL_RES;
+
+		for (int i=0; i<chunk_size; i++)
+			for (int j=0; j<chunk_size; j++)
+				for (int k=0; k<chunk_size; k++)
+					voxels [i, j, k] = new Voxel ();
+		int vertex_dim = chunk_size + 1;
+		
+		int vertex_count = vertex_dim * vertex_dim * vertex_dim;
+	
+		indices = new int[vertex_count * 3];
+		istack = new IndexStack<int> (indices);
+	}
+
+	public void init(Mesh _mesh)
+	{
+		mesh = _mesh;
+		//mesh.MarkDynamic ();
+		mesh.vertices = ChunkTemplate.Instance.vertices;
+		//vertices = null;
+#if USE_NORMALS
+		mesh.normals = ChunkTemplate.Instance.normals;
+		//normals = null;
+		#if USE_UV
+		mesh.uv = ChunkTemplate.Instance.uvs;
+		//uvs = null;
+		#endif
 #endif
+
+	}
+
+	public Vector3 ResizeVertex(Vector3 vert)
+	{
+		Vector3 newCoords = vert * ChunkTemplate.Instance.voxel_size;
+		return newCoords;
+	}
+
+	public int getIndex(int x, int y, int z)
+	{
+		return x * ChunkTemplate.Instance.vertex_dim * ChunkTemplate.Instance.vertex_dim + y * ChunkTemplate.Instance.vertex_dim + z;
 	}
 
 	public int getDirOffset(DIR dir)
 	{
 #if USE_NORMALS
-		return (int)dir * vertex_count;
+		return (int)dir * ChunkTemplate.Instance.vertex_count;
 #else
 		return 0;
 #endif
 	}
 
-	public Vector3 getVertex(int x, int y, int z)
-	{
-		return vertices [getIndex(x,y,z)];
-	}
-	
-	public uint voxel_count = 0;
 	public bool isEmpty()
 	{
 		return voxel_count == 0;
@@ -432,12 +492,13 @@ public class VoxelGrid
 
 	void setVoxelFaces(Voxel vx, Vec3Int coords)
 	{
+		Vector3 vec = coords.ToVec3 () + new Vector3(0.5f,0.5f,0.5f);
 		for(int i=0;i<6;i++)
 		{
 			VF flag = (VF)i;
-			Vec3Int dir = VoxelConsts.CardinalDir[i];
-		
-			Voxel neighbour = getVoxel(coords + dir);
+			Vector3 dir = VoxelConsts.CardinalV3Dir[i];
+			
+			Voxel neighbour = getVoxel(new Vec3Int(vec + dir));
 			bool occupied = neighbour.isOccupied();
 
 			if(occupied)
@@ -455,12 +516,13 @@ public class VoxelGrid
 
 	void unSetVoxelFaces(Voxel vx, Vec3Int coords)
 	{
+		Vector3 vec = coords.ToVec3 () + new Vector3(0.5f,0.5f,0.5f);
 		for(int i=0;i<6;i++)
 		{
 			VF flag = (VF)i;
-			Vec3Int dir = VoxelConsts.CardinalDir[i];
+			Vector3 dir = VoxelConsts.CardinalV3Dir[i];
 			
-			Voxel neighbour = getVoxel(coords + dir);
+			Voxel neighbour = getVoxel(new Vec3Int(vec + dir));
 			bool occupied = neighbour.isOccupied();
 			
 			if(occupied)
@@ -599,15 +661,6 @@ public class VoxelExtractionPointCloud : Singleton<VoxelExtractionPointCloud>
 
 	Matrix4x4 MVP = Matrix4x4.identity;
 
-#if VOXEL_DELETION
-	Plane[] depthPlanes;
-
-	[HideInInspector]
-	public Vector3[] depthPlanePts;
-
-	[HideInInspector]
-	public Vector3 depthCamPos;
-#endif
 
 #if DEBUG_THIS
 	public bool fakeData;
@@ -616,8 +669,6 @@ public class VoxelExtractionPointCloud : Singleton<VoxelExtractionPointCloud>
 	// Use this for initialization
 	void Start () 
 	{
-		//Camera.main.opaqueSortMode = UnityEngine.Rendering.OpaqueSortMode.FrontToBack;
-
 		chunk_size = (int)VoxelConsts.CHUNK_SIZE;
 
 		num_voxels_x = chunk_size * num_chunks_x;
@@ -676,6 +727,7 @@ public class VoxelExtractionPointCloud : Singleton<VoxelExtractionPointCloud>
 	{
 		
 		int timeslice = framecount % VoxelConsts.FRAME_THRES;
+		int del_timeslice = framecount % VoxelConsts.DEL_FRAME_THRES;
 
 		for(int i=0;i<num_chunks_x;i++)
 			for(int j=0;j<num_chunks_y;j++)
@@ -686,32 +738,11 @@ public class VoxelExtractionPointCloud : Singleton<VoxelExtractionPointCloud>
 				if(chunk == null)
 					continue;
 				if(chunk.isEmpty())
-					continue;
-				
-				Vec3Int chunkcoords = new Vec3Int(i,j,k);
-
-#if VOXEL_DELETION
-				if(timeslice == 0 && isChunkInDepthFrustum(chunkcoords))
 				{
-					for(int x=0;x<chunk_size;x++)
-						for(int y=0;y<chunk_size;y++)
-							for(int z=0;z<chunk_size;z++)
-						{
-							Vec3Int vcoord = new Vec3Int(x,y,z);
-							Voxel voxel = chunk.getVoxel(vcoord);
-
-							Vec3Int vxgridcoords = vcoord + chunkcoords * chunk_size;
-							Vector3 wvcoords = FromGridUnTrunc( vxgridcoords.ToVec3() + new Vector3(0.5f,0.5f,0.5f));
-
-							int framethres = VoxelConsts.PT_THRES / VoxelConsts.FRAME_THRES;
-							if(voxel.isOccupied() && voxel.pcount < framethres &&
-								isInDepthFrustum(wvcoords))
-								{
-									grid.unSetFast(voxel,vxgridcoords,chunk);
-								}
-						}
+					chunkGameObjects [i,j,k].GetComponent<MeshRenderer>().enabled = false;
+					continue;
 				}
-#endif
+				Vec3Int chunkcoords = new Vec3Int(i,j,k);
 
 				chunk.istack.clear ();
 
@@ -738,8 +769,14 @@ public class VoxelExtractionPointCloud : Singleton<VoxelExtractionPointCloud>
 							if(timeslice == 0)
 							{
 								voxel.pcount = 0;
-							}
 
+							}
+#if VOXEL_DELETION
+							if(del_timeslice == 0)
+							{
+								voxel.dcount = 0;
+							}
+#endif
 							if(voxel.isOccupied())
 							{
 								//front
@@ -923,6 +960,39 @@ public class VoxelExtractionPointCloud : Singleton<VoxelExtractionPointCloud>
 		return false;
 	}
 
+#if VOXEL_DELETION
+	public void KillerRayCast(Vector3 start)
+	{
+		const float step = 0.5f;
+		Vector3 end = camera.transform.position;
+
+		Vector3 vstart = ToGridUnTrunc (start);
+		Vector3 vend = ToGridUnTrunc (end);
+		Vector3 dir = (vend - vstart).normalized;
+		float mag = (vend - vstart).magnitude;
+		float offset = mag * 0.3f + 1.0f;
+
+		Vector3 pt = vstart + dir * offset;
+
+
+		for(float i=offset;i<(mag - 4.0f);i+=step)
+		{
+			Vec3Int cvCoord = new Vec3Int(pt);
+			Voxel vx = grid.getVoxel(cvCoord);
+			Vec3Int cc = cvCoord / new Vec3Int(chunk_size,chunk_size,chunk_size);
+			Chunks chunk = grid.voxelGrid[cc.x,cc.y,cc.z];
+
+			if(vx.isOccupied())
+			{
+				vx.removePoint();
+				if(!vx.isOccupied())
+					grid.unSetFast(vx,cvCoord,chunk);
+			}
+			
+			pt += dir * step;
+		}
+	}
+#endif
 
 	public void InstantiateChunkIfNeeded(Vec3Int coords)
 	{
@@ -951,6 +1021,19 @@ public class VoxelExtractionPointCloud : Singleton<VoxelExtractionPointCloud>
 	public void addAndRender (TangoPointCloud pointCloud) 
 	{
 		int count = pointCloud.m_pointsCount;
+
+#if VOXEL_DELETION
+		Random.seed = framecount % 20;
+		for (int i=0; i<50; i++) 
+		{
+			int index = Random.Range(0,count);
+			Vector3 pt = pointCloud.m_points[index];
+			Vector3 ranvec = new Vector3(Random.value - 0.5f,Random.value - 0.5f,Random.value - 0.5f) * voxel_size * 2;
+			KillerRayCast(pt + ranvec);
+
+		}
+#endif
+
 		for(int i=0; i< count; i++)
 		{
 
@@ -958,7 +1041,7 @@ public class VoxelExtractionPointCloud : Singleton<VoxelExtractionPointCloud>
 
 			Vec3Int coords = ToGrid(pt);
 			InstantiateChunkIfNeeded(coords);
-				
+
 			grid.setVoxel(coords);
 
 		}
@@ -1035,7 +1118,7 @@ public class VoxelExtractionPointCloud : Singleton<VoxelExtractionPointCloud>
 		//GUI.Label (new Rect (10,500,1000,500), "PlanePts: " + depthPlanePts [0] + " " + depthPlanePts [1] + " " + depthPlanePts [2] + " " + depthPlanePts [3]  );
 	}
 
-	#if VOXEL_DELETION
+	#if VOXEL_DELETION_PREV
 	bool isInDepthFrustum(Vector3 pt)
 	{
 		return (depthPlanes [(int)PLANES.LEFT].GetSide (pt) &&
@@ -1061,7 +1144,7 @@ public class VoxelExtractionPointCloud : Singleton<VoxelExtractionPointCloud>
 	#endif
 
 	
-	#if VOXEL_DELETION
+	#if VOXEL_DELETION_PREV
 	public void computeDepthPlanes(ref Matrix4x4 mat, Vector3 depthPos, Vector3 depthMinPts, Vector3 depthMaxPts)
 	{
 		Vector3 lowerLeft = mat.MultiplyPoint(new Vector3 (depthMinPts.x, depthMinPts.y, depthMaxPts.z));
